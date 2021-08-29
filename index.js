@@ -2,13 +2,29 @@ const express = require('express');
 const Datastore = require('nedb');
 
 const app = express();
-const port = process.env.PORT || 3000;
+var cors = require('cors');
+const port = process.env.PORT;
+
+
+
+const database = new Datastore({filename: '.data/database', autoload: true })
+database.loadDatabase();
+ database.insert({testinit : "testinit"});
+
+
+app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "https://www.geoguessr.com"); // update to match the domain you will make the request from
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
+
+// enable pre-flight request for POST request
+app.options('/api', cors()) 
+
 app.listen(port, () => console.log('listening at ' + port));
 app.use(express.static('public'));
 app.use(express.json({ limit: '1mb' }));
-
-const database = new Datastore('database.db');
-database.loadDatabase();
 
 app.get('/api', (request, response) => {
   database.find({}, (err, data) => {
@@ -20,17 +36,18 @@ app.get('/api', (request, response) => {
   });
 });
 
-app.post('/api', (request, response) => {
+app.post('/api', cors(), function (req, res, next) {
     //console.log(request);
     //console.log(request.body);
-  const data = request.body;
+  const data = req.body;
   //console.log(data);
   //const timestamp = Date.now();
   //data.timestamp = timestamp;
+  database.insert({test : "test"});
   database.insert(data);
   //database.insert(data[0]);
-  console.log(data);
-  //response.json(data);
+  console.log("post : " + JSON.stringify(data));
+  res.json(data);
 
 
 

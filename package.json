@@ -4,7 +4,7 @@
   "description": "statistics for geoguessr",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
   "keywords": [
     "geoguessr"
@@ -12,7 +12,11 @@
   "author": "nico",
   "license": "MIT",
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.17.1",
     "nedb": "^1.8.0"
+  },
+  "devDependencies": {
+    "fastify-cors": "^6.0.2"
   }
 }
