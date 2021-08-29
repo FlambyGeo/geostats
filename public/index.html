@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="="UTF-8" />
+        <meta name="geostats" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.8.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.8.0/addons/p5.dom.min.js"></script>
+        <title>Geostats</title>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+   integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+   crossorigin=""/>
+   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+   integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+   crossorigin=""></script>
+   <script src="https://unpkg.com/leaflet.markercluster@1.3.0/dist/leaflet.markercluster.js"></script>
+   <style>
+#mapMarkers { height: 500px;
+            width: 1000px;
+         }
+
+   </style>
+    </head>
+    <body>
+
+        <!--INIT-->
+        <script src="buttons.js"> </script>
+ 
+        <!-- POST to simulate data
+        <div id="divButtons">
+            <button id="postButton">POST</button>        
+            <>
+        </div> -->
+
+        
+
+
+        <!-- SELECT options for data filter-->
+        <div id="selections"> 
+  
+            <select name="gameType" id="gameType">
+            <option value="all">All game types</option>
+          </select>
+          <select name="timeLimit" id="timeLimit">
+            <option value="all">All time limits</option>
+          </select>
+          <select name="mapName" id="mapName">
+            <option value="all">All maps</option>
+          </select>
+          
+          
+          <button id="updateButton">UPDATE</button></div>  
+
+        <!--UPDATE-->
+        <script>
+
+            var markerList;
+
+            document.getElementById("updateButton").addEventListener("click",loadData);
+            
+            async function loadData(){
+            
+            var divDebug = document.getElementById('gameType');
+            var selectType = document.getElementById('gameType');
+            var valueType = selectType.options[selectType.selectedIndex].value;
+        
+            var selectMap = document.getElementById('mapName');
+            var valueMap = selectMap.options[selectMap.selectedIndex].value;
+        
+            var selectTime = document.getElementById('timeLimit');
+            var valueTime = selectTime.options[selectTime.selectedIndex].value;
+
+            const queryString = window.location.search;
+            console.log(queryString);
+            const urlParams = new URLSearchParams(queryString);
+            const myId = urlParams.get('id');
+        
+            url = "/getdata?id=" + myId + "&type=" + valueType + "&map=" + valueMap + "&time=" + valueTime;
+            var options  = {
+                method: 'GET'
+                    };
+            
+            
+            var response = await fetch(url,options);
+            const dataReturned = await response.json();
+
+              
+              deleteMarkers();
+              console.log(dataReturned);
+              addMarkers(dataReturned);
+            }
+            
+            
+            </script>
+
+         
+          
+          <!--MAP-->
+        <div id="mapMarkers"></div>
+        <script>
+            var mapMark;
+            drawMap();
+function drawMap() {
+mapMark = L.map('mapMarkers').setView([15, 0], 2);
+const attribution =
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+      const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      const tiles = L.tileLayer(tileUrl, { attribution });
+      tiles.addTo(mapMark);
+}
+
+
+
+function addMarkers(data){
+
+
+    // setup a marker group
+    markerList = L.markerClusterGroup();
+
+
+
+    for (var i = 0; i < data.length; i++){
+        console.log(data[i].solutionLat);
+        console.log(data[i].solutionLng);
+        var circleColor = getcolor(data[i].roundScore);
+        var circle = L.circleMarker([data[i].solutionLat, data[i].solutionLng], {
+        color: circleColor,
+        fillColor: circleColor,
+        fillOpacity: 0.5,
+        radius: 5
+        });
+
+        circle.bindPopup("Score : " + data[i].roundScore + "\n Address :" + data[i].address);
+        markerList.addLayer(circle);
+    
+    }
+    window.mapMark.addLayer(markerList);
+
+}
+
+function getcolor(number) {
+
+    if (number<500) {
+        return "#d93030";
+    }
+    if (number<1000) {
+        return "#d94130";
+    }
+    if (number<1250) {
+        return "#d96830";
+    }
+    if (number<1500) {
+        return "#d97930";
+    }
+    if (number<1750) {
+        return "#d98a30";
+    }
+    if (number<2000) {
+        return "#d99b30";
+    }
+    if (number<2250) {
+        return "#d9a930";
+    }
+    if (number<2500) {
+        return "#d9ba30";
+    }
+    if (number<2750) {
+        return "#d9cb30";
+    }
+    if (number<3000) {
+        return "#d9d930";
+    }
+    if (number<3250) {
+        return "#c8d930";
+    }
+    if (number<3500) {
+        return "#b7d930";
+    }
+    if (number<3750) {
+        return "#a6d930";
+    }
+    if (number<4000) {
+        return "#95d930";
+    }
+    if (number<4250) {
+        return "#87d930";
+    }
+    if (number<4500) {
+        return "#76d930";
+    }
+    if (number<4750) {
+        return "#57d930";
+    }
+    if (number<4999) {
+        return "#30d933";
+    }
+
+return "#00eeff";
+
+}
+
+function deleteMarkers(){
+    if(markerList) {
+        markerList.clearLayers();
+    }
+
+
+
+}
+        </script>
+        
+
+
+        <script>
+
+
+
+        </script>
+
+
+    </body>
+
+
+
+
+</html>
+
