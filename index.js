@@ -52,23 +52,46 @@ app.post('/api', cors(), function (req, res, next) {
 
 
 
-app.get('/getselect', (request, response) => {
+app.get('/getselect', async (request, response) => {
     console.log(request.query.id);
-    //var dbResponse = database.find({nickname : request.query.id});
-    var dbResponse;
-    database.find({nickname : request.query.id}, (err, data) => {
+    var dbResponse = await database.find({nickname : request.query.id});
+  console.log(dbResponse.length);
+    
+    var listMap = [];
+    var listType= [];
+    var listTime = [];
+    for (var i = 0; i < dbResponse.length; i++){
+        var row = dbResponse[i];
+        if (!listMap.includes(row.mapName)) {
+            listMap.push(row.mapName);
+        }
+        if (!listType.includes(row.gameType)) {
+            listType.push(row.gameType);
+        }
+        if (!listTime.includes(row.timeLimit)) {
+            listTime.push(row.timeLimit);
+        }
+
+    }
+    var result = {lMap : listMap, lType : listType, lTime : listTime};
+console.log(result);
+  response.json(result);
+  
+  
+    /*database.find({nickname : request.query.id}, (err, data) => {
         if (err) {
+          console.log(err);
           response.end();
           return;
         }
 
-
-      //console.log(data);
+console.log("hey");
+    console.log(data);
     var listMap = [];
     var listType= [];
     var listTime = [];
     for (var i = 0; i < data.length; i++){
-        var row = data[0]
+        var row = data[0];
         if (!listMap.includes(row.mapName)) {
             listMap.push(row.mapName);
         }
@@ -85,7 +108,7 @@ app.get('/getselect', (request, response) => {
     console.log(result);
       response.json(result);
       
-    });
+    });*/
 });
 
 
@@ -143,7 +166,7 @@ async function sendtoDatabase(data) {
     var newMaxDate = 0;
     for (var i = 0; i < data.length; i++){
       var dataDate = new Date(data[i].date);
-        if (dataDate > maxDate) {
+        if (dataDate > newMaxDate) {
             newMaxDate = dataDate;
         }
 
@@ -183,11 +206,14 @@ async function sendtoDatabase(data) {
   console.log("data length : " + data.length);
   
      for (var i = 0; i < data.length; i++) {
-       //console.log("data i : " + data[i].date);
-       //console.log(maxDateObject.maxDate);
+
        var dataDate =new Date(data[i].date);
        var mDate =new Date(maxDateObject.maxDate);
-        if (dataDate > mDate) {
+        console.log(dataDate);
+       console.log(mDate);
+       console.log("diff");
+       console.log(dataDate - mDate);
+        if (dataDate - mDate > 1) {
             insertData.push(data[i]);
         }
     }
@@ -202,37 +228,48 @@ async function sendtoDatabase(data) {
   console.log("post totalapicount :" + totalApiCount);
   
     //reverse geocoding and insrting data into database
+  
+  if (insertData.length !== 0) {
   reverseGeocode(insertData);
   
   
   //update metadata
-  metabase.update({ _id: apiCountObject.id }, { apiCalls : totalApiCount }, {}, (err, num) => {});
-  metabase.update({ _id: maxDateObject.id }, { maxDate : newMaxDate }, {}, (err, num) => {});
-      
+  metabase.update({ _id: apiCountObject.id }, {day : todayDay, month : todayMonth, year : todayYear, apiCalls : totalApiCount}, {}, (err, num) => {});
+  console.log("maxdateobject id : " + maxDateObject.id);
+  console.log(nick);
+  console.log(newMaxDate);
+  metabase.update({ _id: maxDateObject.id }, { nickname : nick, maxDate : newMaxDate }, {}, (err, num) => {console.log(err);});
+  }  
     
 }
 
 async function reverseGeocode(data) {
   
-  var completeData = data;
   
-  //for (var i = 0; i < data.length; i++){
-      for (var i = 0; i < 3; i++){
+  for (var i = 0; i < data.length; i++){
+      //for (var i = 0; i < 3; i++){
+        //every 25 seconds, process one line : send a request for geocoding and write to database
+        setTimeout(reverseGeo, i*250,data[i]);
+    }
+ 
+  
+}
 
-      var requestOptions = {method: 'GET',};
-      var url = "https://api.geoapify.com/v1/geocode/reverse?lat=" + data[i].solutionLat + "&lon="+ data[i].solutionLng +"&apiKey=" + process.env.geoapifyKey;
+async function reverseGeo(dataLine) {
+  var newLine = JSON.parse(JSON.stringify(dataLine));
+  var requestOptions = {method: 'GET',};
+      var url = "https://api.geoapify.com/v1/geocode/reverse?lat=" + dataLine.solutionLat + "&lon="+ dataLine.solutionLng +"&apiKey=" + process.env.geoapifyKey;
       var response = await fetch(url, requestOptions);
       const dataReturned = await response.json();
-      console.log (url + "\n" + JSON.stringify(dataReturned));
-      completeData[i].address = dataReturned.formatted;
-      completeData[i].country = dataReturned.country;
-
-    }
-
-    console.log(completeData);
-    database.insert(completeData);
-
-  
+      //console.log (url + "\n" + JSON.stringify(dataReturned));
+  //console.log(JSON.stringify(dataReturned.features[0].properties.formatted));
+  //console.log(dataReturned.features[0].properties.formatted);
+  //cat .data/metabase
+  console.log(dataReturned.features[0].properties.country);
+      newLine.address = dataReturned.features[0].properties.formatted;
+      newLine["country"] = dataReturned.features[0].properties.country;
+  console.log("new Line :" + JSON.stringify(newLine));
+  database.insert(newLine);
   
 }
 
