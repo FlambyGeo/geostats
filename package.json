@@ -14,7 +14,8 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.17.1",
-    "nedb": "^1.8.0"
+    "nedb-promises": "^5.0.0",
+    "node-fetch": "^2.6.1"
   },
   "devDependencies": {
     "fastify-cors": "^6.0.2"

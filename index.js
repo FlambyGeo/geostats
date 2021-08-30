@@ -1,5 +1,6 @@
 const express = require('express');
-const Datastore = require('nedb');
+const Datastore = require('nedb-promises');
+const fetch = require('node-fetch');
 
 const app = express();
 var cors = require('cors');
@@ -8,9 +9,10 @@ const port = process.env.PORT;
 
 
 const database = new Datastore({filename: '.data/database', autoload: true })
-database.loadDatabase();
- database.insert({testinit : "testinit"});
-
+//database.loadDatabase();
+ //database.insert({testinit : "testinit"});
+const metabase = new Datastore('.data/metabase');
+//metabase.loadDatabase();
 
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "https://www.geoguessr.com"); // update to match the domain you will make the request from
@@ -37,16 +39,11 @@ app.get('/api', (request, response) => {
 });
 
 app.post('/api', cors(), function (req, res, next) {
-    //console.log(request);
-    //console.log(request.body);
+
   const data = req.body;
-  //console.log(data);
-  //const timestamp = Date.now();
-  //data.timestamp = timestamp;
-  database.insert({test : "test"});
-  database.insert(data);
-  //database.insert(data[0]);
-  console.log("post : " + JSON.stringify(data));
+  //database.insert(data);
+  sendtoDatabase(data);
+  //console.log("post : " + JSON.stringify(data));
   res.json(data);
 
 
@@ -122,3 +119,170 @@ app.get('/getdata', (request, response) => {
       
     });
 });
+
+
+
+async function sendtoDatabase(data) {
+    console.log("sendtodatabase");
+    if (!data){
+        return;
+    }
+
+    var maxDate = 0;
+    var maxDateObject = {};
+    var apiCountObject = {};
+    var insertData = [];
+    var apiCount = 0;
+    var totalApiCount = 0;
+
+    //get nickname
+    var nick = data[0].nickname;
+    console.log("post nickname :" + nick);
+
+    //get max date of incoming data
+    var newMaxDate = 0;
+    for (var i = 0; i < data.length; i++){
+      var dataDate = new Date(data[i].date);
+        if (dataDate > maxDate) {
+            newMaxDate = dataDate;
+        }
+
+    }
+  console.log("post newmaxdate:" + newMaxDate);
+  //metabase.insert({test : "testinsert"});
+
+    //if no user exists, insert one
+  var userExist = await userExists(nick);
+  if (!userExist) {
+    var baseDate = new Date('2000-01-01T00:00:00');
+    metabase.insert({nickname : nick, maxDate : baseDate})
+    
+  }
+  //user and his max date,
+  maxDateObject = await getMaxDate(nick);
+  
+    console.log("maxDateObject " + JSON.stringify(maxDateObject));
+
+  //if no date exists, create one
+    var today = new Date();
+    var todayDay = today.getDate();
+    var todayMonth = today.getMonth();
+    var todayYear = today.getFullYear();
+    var queryToday = {day : todayDay, month : todayMonth, year : todayYear}
+    var dateExist = await dateExists(queryToday);
+  if (!dateExist) {
+    metabase.insert({day : todayDay, month : todayMonth, year : todayYear, apiCalls : 0})
+    
+  }
+
+  apiCountObject = await getApiCount(queryToday);
+     
+  console.log("ApiCountObject " + JSON.stringify(apiCountObject));
+
+     //add only the newest entries
+  console.log("data length : " + data.length);
+  
+     for (var i = 0; i < data.length; i++) {
+       //console.log("data i : " + data[i].date);
+       //console.log(maxDateObject.maxDate);
+       var dataDate =new Date(data[i].date);
+       var mDate =new Date(maxDateObject.maxDate);
+        if (dataDate > mDate) {
+            insertData.push(data[i]);
+        }
+    }
+  console.log("insert data length" + insertData.length);
+  
+    //check for daily limit call to reverse geocode api
+    totalApiCount = insertData.length + apiCountObject.apiCount;
+    if ( totalApiCount > 2500) {
+      console.log("too many api calls for today.");
+        return ;
+    }
+  console.log("post totalapicount :" + totalApiCount);
+  
+    //reverse geocoding and insrting data into database
+  reverseGeocode(insertData);
+  
+  
+  //update metadata
+  metabase.update({ _id: apiCountObject.id }, { apiCalls : totalApiCount }, {}, (err, num) => {});
+  metabase.update({ _id: maxDateObject.id }, { maxDate : newMaxDate }, {}, (err, num) => {});
+      
+    
+}
+
+async function reverseGeocode(data) {
+  
+  var completeData = data;
+  
+  //for (var i = 0; i < data.length; i++){
+      for (var i = 0; i < 3; i++){
+
+      var requestOptions = {method: 'GET',};
+      var url = "https://api.geoapify.com/v1/geocode/reverse?lat=" + data[i].solutionLat + "&lon="+ data[i].solutionLng +"&apiKey=" + process.env.geoapifyKey;
+      var response = await fetch(url, requestOptions);
+      const dataReturned = await response.json();
+      console.log (url + "\n" + JSON.stringify(dataReturned));
+      completeData[i].address = dataReturned.formatted;
+      completeData[i].country = dataReturned.country;
+
+    }
+
+    console.log(completeData);
+    database.insert(completeData);
+
+  
+  
+}
+
+async function userExists(user) {
+   const record = await metabase.findOne({nickname : user});
+  console.log(record);
+  if(record) {
+    return true;
+    
+  }
+  return false;
+  
+}
+
+
+async function dateExists(query) {
+    
+   const record = await metabase.findOne(query);
+  console.log(record);
+  if(record) {
+    return true;   
+  }
+  return false;
+}
+
+
+async function getMaxDate(user) {
+  
+    //get user max date and id
+  var record = await metabase.find({nickname : user});
+      var response = {};
+    response.maxDate = record[0].maxDate;
+    response.id = record[0]._id;
+    return response;
+  
+  }
+
+
+
+async function getApiCount(query) {
+     var record = await metabase.find(query);
+  console.log("apicount record : ");
+  console.log(record);
+        //console.log("update datameta api number");
+        //metabase.update({ _id: dataMeta[0]._id }, { apiCalls: apiNumber }, {}, (err, num) => {});         
+       var response = {};
+       response.apiCount = record[0].apiCalls;
+       response.id = record[0]._id;    
+       return response;    
+    
+}
+  
+  
