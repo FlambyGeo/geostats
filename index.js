@@ -77,42 +77,11 @@ app.get('/getselect', async (request, response) => {
 console.log(result);
   response.json(result);
   
-  
-    /*database.find({nickname : request.query.id}, (err, data) => {
-        if (err) {
-          console.log(err);
-          response.end();
-          return;
-        }
 
-console.log("hey");
-    console.log(data);
-    var listMap = [];
-    var listType= [];
-    var listTime = [];
-    for (var i = 0; i < data.length; i++){
-        var row = data[0];
-        if (!listMap.includes(row.mapName)) {
-            listMap.push(row.mapName);
-        }
-        if (!listType.includes(row.gameType)) {
-            listType.push(row.gameType);
-        }
-        if (!listTime.includes(row.timeLimit)) {
-            listTime.push(row.timeLimit);
-        }
-
-    }
-    var result = {lMap : listMap, lType : listType, lTime : listTime};
-
-    console.log(result);
-      response.json(result);
-      
-    });*/
 });
 
 
-app.get('/getdata', (request, response) => {
+app.get('/getdata', async (request, response) => {
     console.log(request.query.id);
     console.log(request.query.type);
     console.log(request.query.map);
@@ -130,17 +99,12 @@ app.get('/getdata', (request, response) => {
         dataQuery.timeLimit = request.query.time;
     }
 
+    console.log(dataQuery);
+    var dbResponse = await database.find(dataQuery);
 
-    database.find(dataQuery, (err, data) => {
-        if (err) {
-          response.end();
-          return;
-        }
-
-    console.log(data);
-      response.json(data);
+    console.log(dbResponse);
+      response.json(dbResponse);
       
-    });
 });
 
 
