@@ -20,6 +20,12 @@
          }
 
    </style>
+  <style>
+#mapCountries { height: 400px;
+            width: 800px;
+         }
+
+   </style>
     </head>
     <body>
 
@@ -55,6 +61,39 @@
         <script>
 
             var markerList;
+            var geoJSONLayer;
+            var info = L.control();
+                                   
+                                   info.onAdd = function (mapC) {
+    this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
+    this.update();
+    return this._div;
+};
+                                                                                    
+function highlightFeature(e) {
+    var layer = e.target;
+
+    layer.setStyle({
+        weight: 5,
+        color: '#666',
+        dashArray: '',
+        fillOpacity: 0.7
+    });
+
+    if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+        layer.bringToFront();
+    }
+}
+
+function resetHighlight(e) {
+    geoJSONLayer.resetStyle(e.target);
+}
+function onEachFeature(feature, layer) {
+
+        console.log(feature.properties.averageScore);
+        layer.bindPopup(feature.properties.ADMIN +feature.properties.averageScore);
+    
+}
 
             document.getElementById("updateButton").addEventListener("click",loadData);
             
@@ -82,11 +121,45 @@
             
             
             var response = await fetch(url,options);
-            const dataReturned = await response.json();
-
-              
+            const dataObject = await response.json();                                                                                  
+            const dataReturned = dataObject.list;
+            const dataCountry = dataObject.countryStats;
+            const dataGeoJSON = dataObject.geoData;
+                                                                                              
+            var top5 = [];                                                                                         
+            var mint5 = Math.min(5,dataReturned.length);
+                                                                                              console.log(mint5);
+                 for (var i = 0; i < mint5 ; i++) {
+                 top5.push(dataReturned[i]);                                                                                                                               
+            }
+                 console.log(JSON.stringify(top5));                                                                             
+            var flop5 = [];
+            var maxf5 = Math.max(0, dataReturned.length-5);
+                  for (var i = dataReturned.length - 1 ; i > maxf5 ; i--) {
+                 flop5.push(dataReturned[i]);                                                                                                                               
+            }
+                    
+            
+            var t5String = " BEST ROUNDS top 5 \n";                                                                                  
+            for(var i = 0; i < top5.length ; i++) {
+                t5String = t5String.concat(top5[i].distanceInMeters + " m = " + top5[i].roundScore + " points in " + top5[i].time + " seconds at " + top5[i].address + "\n" );                                                                                                                                              
+            }                                                                                  
+                                                                                       
+              document.getElementById("t5").innerHTML = t5String;
+                 
+            var f5String = " WORST ROUNDS flop 5 \n";                                                                                  
+            for(var i = 0; i < flop5.length ; i++) {
+                f5String = f5String.concat(flop5[i].distanceInMeters + " m = " + flop5[i].roundScore + " points in " + flop5[i].time + " seconds at " + flop5[i].address + "\n" );                                                                                                                                              
+            } 
+              console.log(flop5.length); 
+            document.getElementById("f5").innerHTML = f5String;
+            
+            document.getElementById("cStats").innerHTML = JSON.stringify(dataCountry);
+                     //console.log("geoJSON length" + dataGeoJSON.features.length);  
+                                                   //console.log(dataGeoJSON);
+                updategeojson(dataGeoJSON);  
+                                            
               deleteMarkers();
-              console.log(dataReturned);
               addMarkers(dataReturned);
             }
             
@@ -97,6 +170,10 @@
           
           <!--MAP-->
         <div id="mapMarkers"></div>
+        <div id="t5"></div>
+        <div id="f5"></div>
+        <div id="mapCountries"></div>
+                    
         <script>
             var mapMark;
             drawMap();
@@ -111,18 +188,36 @@ const attribution =
 }
 
 
+                                                                 
+    function style(feature) {
+    return {
+        fillColor: getcolor(feature.properties.averageScore),
+        weight: 2,
+        opacity: 1,
+        color: 'white',
+        dashArray: '3',
+        fillOpacity: 0.7
+    };
+}
+                                                                 
+function updategeojson(data){
+    
+    if (geoJSONLayer) {
+    geoJSONLayer.clearLayers();   
+    }
+    geoJSONLayer = new L.geoJson(data, {style: style, onEachFeature: onEachFeature});                                                         
+       window.mapC.addLayer(geoJSONLayer);                                                          
+}
 
 function addMarkers(data){
 
 
     // setup a marker group
-    markerList = L.markerClusterGroup();
-
+    //markerList = L.markerClusterGroup();
+markerList = new L.layerGroup();
 
 
     for (var i = 0; i < data.length; i++){
-        console.log(data[i].solutionLat);
-        console.log(data[i].solutionLng);
         var circleColor = getcolor(data[i].roundScore);
         var circle = L.circleMarker([data[i].solutionLat, data[i].solutionLng], {
         color: circleColor,
@@ -141,6 +236,9 @@ function addMarkers(data){
 
 function getcolor(number) {
 
+    if (number < 0){
+      return "#ffffff";                                                                     
+    }
     if (number<500) {
         return "#d93030";
     }
@@ -204,12 +302,33 @@ function deleteMarkers(){
     if(markerList) {
         markerList.clearLayers();
     }
-
-
-
 }
+                
+                
+                
+                
         </script>
         
+                    
+                    
+                    
+                    <!--MAP countries-->
+        
+        <script>
+            var mapC;
+            drawMapC();
+            function drawMapC() {
+                mapC= L.map('mapCountries').setView([15, 0], 2);
+                const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+                const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+                const tiles = L.tileLayer(tileUrl, { attribution });
+                tiles.addTo(mapC);
+                                                                                             
+            //
+}
+        </script>
+
+        <div id="cStats"></div>
 
 
         <script>

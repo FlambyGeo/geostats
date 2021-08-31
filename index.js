@@ -53,9 +53,9 @@ app.post('/api', cors(), function (req, res, next) {
 
 
 app.get('/getselect', async (request, response) => {
-    console.log(request.query.id);
+    //console.log(request.query.id);
     var dbResponse = await database.find({nickname : request.query.id});
-  console.log(dbResponse.length);
+  //console.log(dbResponse.length);
     
     var listMap = [];
     var listType= [];
@@ -74,7 +74,7 @@ app.get('/getselect', async (request, response) => {
 
     }
     var result = {lMap : listMap, lType : listType, lTime : listTime};
-console.log(result);
+//console.log(result);
   response.json(result);
   
 
@@ -82,10 +82,10 @@ console.log(result);
 
 
 app.get('/getdata', async (request, response) => {
-    console.log(request.query.id);
+    /*console.log(request.query.id);
     console.log(request.query.type);
     console.log(request.query.map);
-    console.log(request.query.time);
+    console.log(request.query.time);*/
 
     var dataQuery = {nickname : request.query.id};
 
@@ -96,21 +96,83 @@ app.get('/getdata', async (request, response) => {
         dataQuery.mapName= request.query.map;
     }
     if (request.query.time != "all") {
-        dataQuery.timeLimit = request.query.time;
+        dataQuery.timeLimit = parseInt(request.query.time);
     }
 
     console.log(dataQuery);
-    var dbResponse = await database.find(dataQuery);
+    var dbResponse = await database.find(dataQuery).sort({roundScore: -1, time : 1});
 
-    console.log(dbResponse);
-      response.json(dbResponse);
+      /*for (var i = 0; i < dbResponse.length; i++){
+    console.log("score : " + dbResponse[i].roundScore +" time " + dbResponse[i].time);
+      }*/
+  
+  //list.sort((a, b) => (a.color > b.color) ? 1 : (a.color === b.color) ? ((a.size > b.size) ? 1 : -1) : -1 )
+  
+  var countryStats = getCountryStats(dbResponse);
+  
+  var geodata = createGeoJSON(countryStats);
+  
+  console.log("geodata length :" + geodata.features.length);
+  for (var i = 0; i < geodata.features.length; i++) {
+  console.log(geodata.features[i].properties.ADMIN + geodata.features[i].properties.averageScore);
+  }
+  
+  var dataObject = {list : dbResponse, countryStats : countryStats, geoData : geodata};
+  
+      response.json(dataObject);
       
 });
 
+function createGeoJSON(data) {
+  var fs = require('fs');
+var worldCountries = JSON.parse(fs.readFileSync('ready.geojson', 'utf8'));
+
+  for (var i = 0; i < worldCountries.features.length; i++) {
+  if (data.hasOwnProperty(worldCountries.features[i].properties.ADMIN)) {
+  worldCountries.features[i].properties.averageScore = data[worldCountries.features[i].properties.ADMIN].meanScore;
+   worldCountries.features[i].properties.averageTime = data[worldCountries.features[i].properties.ADMIN].meanTime;
+    worldCountries.features[i].properties.count = data[worldCountries.features[i].properties.ADMIN].count;
+    
+  console.log("country " + worldCountries.features[i].properties.ADMIN + "score " + worldCountries.features[i].properties.averageScore );
+  }
+  }
+    return worldCountries;
+  
+}
+  
+  
+
+
+
+function getCountryStats(data) {
+  
+  var cStats = {};
+       for (var i = 0; i < data.length; i++) {
+         cStats[data[i].country] ={count : 0, distanceInMeters : 0, time : 0, score : 0};
+       }
+         for (var i = 0; i < data.length; i++) {
+         cStats[data[i].country].count = cStats[data[i].country].count + 1;
+           cStats[data[i].country].distanceInMeters= cStats[data[i].country].distanceInMeters + data[i].distanceInMeters;
+           cStats[data[i].country].time = cStats[data[i].country].time + data[i].time;
+           cStats[data[i].country].score = cStats[data[i].country].score + data[i].roundScore;
+       }
+  
+  //console.log(JSON.stringify(cStats));
+  var realStats = {};
+  
+  for(var propertyName in cStats) {
+    realStats[propertyName] = {count : cStats[propertyName].count, meanDistanceInMeters : cStats[propertyName].distanceInMeters / cStats[propertyName].count, meanTime : cStats[propertyName].time / cStats[propertyName].count, meanScore : cStats[propertyName].score / cStats[propertyName].count}
+}
+
+  //console.log(JSON.stringify(realStats));
+  return realStats;
+  
+  
+}
 
 
 async function sendtoDatabase(data) {
-    console.log("sendtodatabase");
+    //console.log("sendtodatabase");
     if (!data){
         return;
     }
@@ -173,10 +235,10 @@ async function sendtoDatabase(data) {
 
        var dataDate =new Date(data[i].date);
        var mDate =new Date(maxDateObject.maxDate);
-        console.log(dataDate);
+        /*console.log(dataDate);
        console.log(mDate);
        console.log("diff");
-       console.log(dataDate - mDate);
+       console.log(dataDate - mDate);*/
         if (dataDate - mDate > 1) {
             insertData.push(data[i]);
         }
@@ -239,7 +301,7 @@ async function reverseGeo(dataLine) {
 
 async function userExists(user) {
    const record = await metabase.findOne({nickname : user});
-  console.log(record);
+  //console.log(record);
   if(record) {
     return true;
     
@@ -252,7 +314,7 @@ async function userExists(user) {
 async function dateExists(query) {
     
    const record = await metabase.findOne(query);
-  console.log(record);
+  //console.log(record);
   if(record) {
     return true;   
   }
@@ -285,5 +347,7 @@ async function getApiCount(query) {
        return response;    
     
 }
+
+
   
   
